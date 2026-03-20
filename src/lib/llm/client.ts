@@ -14,12 +14,17 @@ export function createLLMClient(config: LLMClientConfig) {
   });
 }
 
+type UserContent = string | Array<
+  | { type: "text"; text: string }
+  | { type: "image_url"; image_url: { url: string } }
+>;
+
 export async function chatCompletion(
   client: OpenAI,
   params: {
     model: string;
     systemPrompt: string;
-    userPrompt: string;
+    userPrompt: UserContent;
     temperature?: number;
     responseFormat?: "json" | "text";
   }
@@ -29,7 +34,7 @@ export async function chatCompletion(
       model: params.model,
       messages: [
         { role: "system", content: params.systemPrompt },
-        { role: "user", content: params.userPrompt },
+        { role: "user", content: params.userPrompt as string },
       ],
       temperature: params.temperature ?? 0.7,
       ...(params.responseFormat === "json" && {
