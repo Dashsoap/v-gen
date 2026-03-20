@@ -10,6 +10,20 @@ export const authOptions: any = {
   session: {
     strategy: "jwt",
   },
+  cookies: {
+    sessionToken: {
+      name: "vgen.session-token",
+      options: { httpOnly: true, sameSite: "lax" as const, path: "/", secure: false },
+    },
+    callbackUrl: {
+      name: "vgen.callback-url",
+      options: { httpOnly: true, sameSite: "lax" as const, path: "/", secure: false },
+    },
+    csrfToken: {
+      name: "vgen.csrf-token",
+      options: { httpOnly: true, sameSite: "lax" as const, path: "/", secure: false },
+    },
+  },
   pages: {
     signIn: "/auth/signin",
   },
