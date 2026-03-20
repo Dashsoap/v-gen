@@ -1,0 +1,53 @@
+{
+  "app": {
+    "title": "V-Gen",
+    "subtitle": "Video Re-Generation"
+  },
+  "nav": {
+    "projects": "Projects",
+    "settings": "Settings",
+    "signOut": "Sign Out"
+  },
+  "auth": {
+    "signIn": "Sign In",
+    "signUp": "Sign Up",
+    "email": "Email",
+    "password": "Password",
+    "confirmPassword": "Confirm Password",
+    "name": "Name",
+    "noAccount": "Don't have an account?",
+    "hasAccount": "Already have an account?"
+  },
+  "project": {
+    "create": "New Project",
+    "upload": "Upload Video",
+    "analyze": "Analyze Video",
+    "analyzing": "Analyzing...",
+    "rewrite": "AI Rewrite",
+    "rewriting": "Rewriting...",
+    "storyboard": "Generate Storyboard",
+    "generateImages": "Generate Images",
+    "generateVideos": "Generate Videos",
+    "compose": "Compose Video",
+    "download": "Download",
+    "step1": "Upload Video",
+    "step2": "Edit Text",
+    "step3": "Storyboard Preview",
+    "step4": "Compose & Download"
+  },
+  "settings": {
+    "title": "Settings",
+    "providers": "API Providers",
+    "models": "Model Config",
+    "addProvider": "Add Provider",
+    "apiKey": "API Key",
+    "baseUrl": "Base URL"
+  },
+  "taskStatus": {
+    "pending": "Queued",
+    "running": "Processing",
+    "completed": "Completed",
+    "failed": "Failed",
+    "cancelled": "Cancelled"
+  }
+}

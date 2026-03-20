@@ -1,0 +1,73 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: vgen-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: vgen123
+      MYSQL_DATABASE: vgen
+    ports:
+      - "13308:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 15s
+
+  redis:
+    image: redis:7-alpine
+    container_name: vgen-redis
+    restart: unless-stopped
+    ports:
+      - "16381:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: vgen-app
+    restart: unless-stopped
+    ports:
+      - "14100:3000"
+      - "14110:3010"
+    environment:
+      DATABASE_URL: "mysql://root:vgen123@mysql:3306/vgen"
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      NEXTAUTH_URL: "http://localhost:14100"
+      NEXTAUTH_SECRET: "docker-secret-change-in-production"
+      API_ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+      STORAGE_TYPE: "local"
+      LOCAL_STORAGE_PATH: "/app/data"
+      WORKER_IMAGE_CONCURRENCY: "50"
+      WORKER_VIDEO_CONCURRENCY: "50"
+      WORKER_VOICE_CONCURRENCY: "20"
+      WORKER_TEXT_CONCURRENCY: "50"
+      WATCHDOG_INTERVAL_MS: "30000"
+      TASK_HEARTBEAT_TIMEOUT_MS: "60000"
+    volumes:
+      - ./data:/app/data
+      - ./docker-logs:/app/logs
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: >
+      sh -c "npx prisma db push --skip-generate && npm run start"
+
+volumes:
+  mysql_data:
+  redis_data:
