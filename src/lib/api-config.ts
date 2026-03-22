@@ -240,37 +240,34 @@ export async function resolveDefaultModel(
   mediaType: ModelMediaType,
 ): Promise<ModelSelection> {
   const config = await readUserConfig(userId);
-  const models = config.models.filter((m) => m.type === mediaType && m.enabled);
 
-  if (models.length === 0) {
-    throw new Error(`MODEL_NOT_CONFIGURED: no ${mediaType} model is enabled`);
-  }
-
-  // Check user default
+  // Check user default key first — works even without customModels list
   const defaultKey = config.defaults[mediaType];
   if (defaultKey) {
     const parsed = parseModelKey(defaultKey);
     if (parsed) {
-      const match = models.find((m) => m.provider === parsed.provider && m.modelId === parsed.modelId);
-      if (match) {
-        return {
-          provider: match.provider,
-          modelId: match.modelId,
-          modelKey: match.modelKey,
-          mediaType,
-        };
-      }
+      return {
+        provider: parsed.provider,
+        modelId: parsed.modelId,
+        modelKey: defaultKey,
+        mediaType,
+      };
     }
   }
 
-  // Fallback to first enabled
-  const first = models[0];
-  return {
-    provider: first.provider,
-    modelId: first.modelId,
-    modelKey: first.modelKey,
-    mediaType,
-  };
+  // Fallback to first enabled model in customModels list
+  const models = config.models.filter((m) => m.type === mediaType && m.enabled);
+  if (models.length > 0) {
+    const first = models[0];
+    return {
+      provider: first.provider,
+      modelId: first.modelId,
+      modelKey: first.modelKey,
+      mediaType,
+    };
+  }
+
+  throw new Error(`MODEL_NOT_CONFIGURED: no ${mediaType} model is enabled`);
 }
 
 /**
