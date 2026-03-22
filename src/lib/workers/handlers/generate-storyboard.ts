@@ -97,21 +97,66 @@ async function parseJsonWithRetry<T>(
 
 export const handleGenerateStoryboard = withTaskLifecycle(async (payload: TaskPayload, ctx) => {
   const { userId, projectId } = payload;
+  if (!projectId) throw new Error("projectId is required");
 
   const llmCfg = await resolveLlmConfig(userId);
   const client = createLLMClient(llmCfg);
   const model = llmCfg.model;
 
-  // Get all clips for the project
-  const episodes = await prisma.episode.findMany({
+  // Get project text
+  const project = await prisma.project.findUnique({ where: { id: projectId } });
+  if (!project) throw new Error("Project not found");
+
+  const sourceText = project.rewrittenText || project.analyzedText || "";
+  if (!sourceText.trim()) throw new Error("No text available for storyboard generation");
+
+  // Get or create episodes/clips from project text
+  let episodes = await prisma.episode.findMany({
     where: { projectId },
     include: { clips: { orderBy: { sortOrder: "asc" } } },
     orderBy: { sortOrder: "asc" },
   });
 
-  // Detect language from project text
-  const project = await prisma.project.findUnique({ where: { id: projectId } });
-  const sampleText = episodes[0]?.clips[0]?.description || project?.rewrittenText || project?.analyzedText || "";
+  // If no episodes exist, create a default episode with clips split by paragraphs
+  if (episodes.length === 0) {
+    logger.info("No episodes found, creating from project text");
+    const paragraphs = sourceText
+      .split(/\n\n+/)
+      .map((p) => p.trim())
+      .filter((p) => p.length > 0);
+
+    // Group paragraphs into clips (each clip ~1-3 paragraphs for reasonable panel count)
+    const clips: Array<{ title: string; description: string }> = [];
+    const PARA_PER_CLIP = 2;
+    for (let i = 0; i < paragraphs.length; i += PARA_PER_CLIP) {
+      const group = paragraphs.slice(i, i + PARA_PER_CLIP);
+      clips.push({
+        title: `Scene ${Math.floor(i / PARA_PER_CLIP) + 1}`,
+        description: group.join("\n\n"),
+      });
+    }
+
+    const episode = await prisma.episode.create({
+      data: {
+        projectId,
+        title: project.title || "Episode 1",
+        sortOrder: 0,
+        status: "draft",
+        clips: {
+          create: clips.map((c, idx) => ({
+            title: c.title,
+            description: c.description,
+            sortOrder: idx,
+          })),
+        },
+      },
+      include: { clips: { orderBy: { sortOrder: "asc" } } },
+    });
+    episodes = [episode];
+    logger.info("Created episode with clips", { clipCount: clips.length });
+  }
+
+  const sampleText = episodes[0]?.clips[0]?.description || sourceText;
   const language: DetectedLanguage = detectLanguage(sampleText);
   logger.info("Detected language", { language });
 
