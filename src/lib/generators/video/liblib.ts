@@ -167,7 +167,7 @@ function buildAuthUrl(uri: string, accessKey: string, secretKey: string): string
 // ─── Generator ───────────────────────────────────────────────────────────
 
 const POLL_INTERVAL_MS = 5000;
-const MAX_POLL_ATTEMPTS = 120; // ~10 minutes
+const MAX_POLL_ATTEMPTS = 360; // ~30 minutes (Kling can be slow during peak)
 
 export class LiblibVideoGenerator implements VideoGenerator {
   private accessKey: string;

@@ -96,30 +96,45 @@ export default function ProjectPage({ params }: { params: Promise<{ projectId: s
       if (res.ok) {
         const data = await res.json();
         const taskId = data.taskId;
-        toast.success("Task started");
+        const taskIds: string[] = data.taskIds || (taskId ? [taskId] : []);
+        const count = data.count || taskIds.length || 1;
+        toast.success(`已启动 ${count} 个任务`);
         await fetchProject();
 
-        // Poll task status for completion/failure
-        if (taskId) {
+        // Poll task status — for batch ops, poll all tasks and refresh periodically
+        if (taskIds.length > 0) {
+          let completedCount = 0;
+          let failedCount = 0;
           const checkInterval = setInterval(async () => {
             try {
-              const taskRes = await fetch(`/api/tasks/${taskId}`);
-              if (!taskRes.ok) return;
-              const task = await taskRes.json();
-              if (task.status === "completed") {
-                clearInterval(checkInterval);
+              let newCompleted = 0;
+              let newFailed = 0;
+              for (const tid of taskIds) {
+                const taskRes = await fetch(`/api/tasks/${tid}`);
+                if (!taskRes.ok) continue;
+                const task = await taskRes.json();
+                if (task.status === "completed") newCompleted++;
+                else if (task.status === "failed") newFailed++;
+              }
+              // Refresh project data when progress changes
+              if (newCompleted !== completedCount || newFailed !== failedCount) {
+                completedCount = newCompleted;
+                failedCount = newFailed;
                 await fetchProject();
-                toast.success("完成!");
-              } else if (task.status === "failed") {
+              }
+              // All done
+              if (completedCount + failedCount >= taskIds.length) {
                 clearInterval(checkInterval);
-                await fetchProject();
-                const errMsg = task.error || task.errorCode || "未知错误";
-                setLastError(errMsg);
-                toast.error(`任务失败: ${errMsg}`);
+                if (failedCount > 0) {
+                  setLastError(`${failedCount}/${taskIds.length} 个任务失败`);
+                  toast.error(`完成: ${completedCount} 成功, ${failedCount} 失败`);
+                } else {
+                  toast.success(`全部 ${completedCount} 个任务完成!`);
+                }
               }
             } catch { /* ignore poll errors */ }
-          }, 3000);
-          setTimeout(() => clearInterval(checkInterval), 300000);
+          }, 5000);
+          setTimeout(() => clearInterval(checkInterval), 1800000); // 30min max
         }
       } else {
         const errData = await res.json().catch(() => ({}));
