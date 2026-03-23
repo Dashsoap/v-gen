@@ -1,3 +1,4 @@
+import { join } from "path";
 import { prisma } from "@/lib/prisma";
 import { extractFrames, cleanupFrames } from "@/lib/video-analyze/extract-frames";
 import { analyzeFrames } from "@/lib/video-analyze/analyze";
@@ -26,9 +27,17 @@ export const handleVideoAnalyze = withTaskLifecycle(async (payload: TaskPayload,
   await ctx.reportProgress(10);
 
   // Step 1: Extract frames from video
-  logger.info("Extracting frames", { projectId, videoUrl: project.sourceVideoUrl });
+  // Convert web URL path to local file path
+  let videoPath = project.sourceVideoUrl;
+  const storagePath = process.env.LOCAL_STORAGE_PATH || "./data";
+  if (videoPath.startsWith("/api/files/")) {
+    videoPath = join(storagePath, videoPath.replace(/^\/api\/files\//, ""));
+  } else if (videoPath.startsWith("/data/")) {
+    videoPath = videoPath.replace(/^\/data\//, `${storagePath}/`);
+  }
+  logger.info("Extracting frames", { projectId, videoPath });
   const { frames, tempDir, durationSec } = await extractFrames({
-    videoPath: project.sourceVideoUrl,
+    videoPath,
     intervalSec: 5,
     maxFrames: 20,
   });

@@ -24,7 +24,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
   const buffer = Buffer.from(await file.arrayBuffer());
   await writeFile(filepath, buffer);
 
-  const url = `/data/uploads/${auth.user.id}/${filename}`;
+  const url = `/api/files/uploads/${auth.user.id}/${filename}`;
 
   return NextResponse.json({ url, filename }, { status: 201 });
 });
