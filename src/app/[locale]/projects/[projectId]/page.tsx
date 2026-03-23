@@ -113,7 +113,7 @@ export default function ProjectPage({ params }: { params: Promise<{ projectId: s
   if (!project) return <div className="min-h-screen flex items-center justify-center text-[var(--danger)]">Project not found</div>;
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen" onDragOver={(e) => e.preventDefault()} onDrop={(e) => e.preventDefault()}>
       {/* Header */}
       <header className="border-b border-[var(--border)] px-6 py-3 flex items-center gap-4">
         <button onClick={() => router.push("/")} className="text-[var(--muted)] hover:text-[var(--foreground)]">
@@ -145,7 +145,17 @@ export default function ProjectPage({ params }: { params: Promise<{ projectId: s
               </div>
             </div>
           ) : (
-            <label className="block border-2 border-dashed border-[var(--border)] rounded-xl p-12 text-center cursor-pointer hover:border-[var(--primary)] transition">
+            <label
+              className="block border-2 border-dashed border-[var(--border)] rounded-xl p-12 text-center cursor-pointer hover:border-[var(--primary)] transition"
+              onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+              onDrop={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const file = e.dataTransfer.files?.[0];
+                if (file && file.type.startsWith("video/")) uploadVideo(file);
+                else toast.error("请拖入视频文件");
+              }}
+            >
               <Upload size={32} className="mx-auto mb-2 text-[var(--muted)]" />
               <p className="text-[var(--muted)]">拖拽视频文件或点击上传</p>
               <input
