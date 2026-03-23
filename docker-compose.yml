@@ -47,7 +47,7 @@ services:
       DATABASE_URL: "mysql://root:vgen123@mysql:3306/vgen"
       REDIS_HOST: redis
       REDIS_PORT: "6379"
-      NEXTAUTH_URL: "http://localhost:14100"
+      NEXTAUTH_URL: "http://154.26.239.250:14100"
       NEXTAUTH_SECRET: "docker-secret-change-in-production"
       API_ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
       STORAGE_TYPE: "local"

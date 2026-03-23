@@ -1,3 +1,6 @@
+import { writeFile, mkdir } from "fs/promises";
+import { join } from "path";
+import { randomUUID } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { createLLMClient, chatCompletion } from "@/lib/llm/client";
 import {
@@ -123,9 +126,33 @@ export const handleGeneratePanelImage = withTaskLifecycle(async (payload: TaskPa
   const results = await Promise.all(generatePromises);
 
   const candidateUrls: string[] = [];
+  const storagePath = process.env.LOCAL_STORAGE_PATH || "./data";
+  const imageDir = join(storagePath, "images", projectId || "unknown");
+  await mkdir(imageDir, { recursive: true });
+
   for (const result of results) {
-    const url = result.url || (result.base64 ? `data:image/png;base64,${result.base64}` : null);
-    if (url) candidateUrls.push(url);
+    if (result.url && !result.url.startsWith("data:")) {
+      candidateUrls.push(result.url);
+    } else if (result.base64 || (result.url && result.url.startsWith("data:"))) {
+      // Save base64 to file and return accessible URL
+      let base64Data = result.base64 || "";
+      let ext = "png";
+      if (!base64Data && result.url) {
+        const match = result.url.match(/^data:image\/(\w+);base64,(.+)$/);
+        if (match) {
+          ext = match[1] === "jpeg" ? "jpg" : match[1];
+          base64Data = match[2];
+        }
+      }
+      // Detect actual format from magic bytes
+      if (base64Data.startsWith("/9j/")) ext = "jpg";
+      else if (base64Data.startsWith("iVBOR")) ext = "png";
+
+      const filename = `${randomUUID()}.${ext}`;
+      const filepath = join(imageDir, filename);
+      await writeFile(filepath, Buffer.from(base64Data, "base64"));
+      candidateUrls.push(`/api/files/images/${projectId || "unknown"}/${filename}`);
+    }
   }
 
   if (candidateUrls.length === 0) {

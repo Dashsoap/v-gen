@@ -1,3 +1,6 @@
+import { writeFile, mkdir } from "fs/promises";
+import { join } from "path";
+import { randomUUID } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { createVideoGenerator } from "@/lib/generators/factory";
 import { resolveVideoConfig, resolveProviderConfig, mapToVideoProvider } from "@/lib/providers/resolve";
@@ -75,8 +78,40 @@ export const handleGeneratePanelVideo = withTaskLifecycle(async (payload: TaskPa
 
   await ctx.reportProgress(50);
 
+  // Convert base64 data URIs to files, then to public URLs
+  const storagePath = process.env.LOCAL_STORAGE_PATH || "./data";
+  const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+
+  async function resolveImageUrl(url: string): Promise<string> {
+    if (url.startsWith("data:image/")) {
+      // Save base64 to file
+      const match = url.match(/^data:image\/(\w+);base64,(.+)$/);
+      if (!match) return url;
+      let ext = match[1] === "jpeg" ? "jpg" : match[1];
+      const b64 = match[2];
+      if (b64.startsWith("/9j/")) ext = "jpg";
+      const dir = join(storagePath, "images", "converted");
+      await mkdir(dir, { recursive: true });
+      const filename = `${randomUUID()}.${ext}`;
+      await writeFile(join(dir, filename), Buffer.from(b64, "base64"));
+      const newUrl = `/api/files/images/converted/${filename}`;
+      // Update panel imageUrl in DB
+      await prisma.panel.update({ where: { id: panelId }, data: { imageUrl: newUrl } });
+      return `${baseUrl}${newUrl}`;
+    }
+    if (url.startsWith("/api/files/") || url.startsWith("/data/")) {
+      return `${baseUrl}${url}`;
+    }
+    return url;
+  }
+
+  let imageUrl = await resolveImageUrl(panel.imageUrl);
+  if (lastFrameImageUrl) {
+    lastFrameImageUrl = await resolveImageUrl(lastFrameImageUrl);
+  }
+
   const result = await generator.generate({
-    imageUrl: panel.imageUrl,
+    imageUrl,
     prompt: enhancedPrompt,
     durationMs: panel.durationMs,
     lastFrameImageUrl,
