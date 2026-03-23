@@ -46,7 +46,7 @@ const VIDEO_MODELS: Record<string, VideoModelConfig> = {
         model,
         prompt: params.prompt || "",
         promptMagic: 0,
-        duration: params.durationMs ? String(Math.round(params.durationMs / 1000)) : "5",
+        duration: clampDuration(params.durationMs),
         mode: "std",
       };
 
@@ -81,7 +81,7 @@ const VIDEO_MODELS: Record<string, VideoModelConfig> = {
       prompt: params.prompt || "",
       promptMagic: 0,
       aspectRatio: "16:9",
-      duration: params.durationMs ? String(Math.round(params.durationMs / 1000)) : "5",
+      duration: clampDuration(params.durationMs),
       mode: model === "kling-v2-5-turbo" ? "pro" : "std",
       ...(isV26(model) ? { sound: "off" } : {}),
     }),
@@ -104,7 +104,7 @@ const VIDEO_MODELS: Record<string, VideoModelConfig> = {
         promptMagic: 0,
         referenceImages: images,
         aspectRatio: "16:9",
-        duration: params.durationMs ? String(Math.round(params.durationMs / 1000)) : "5",
+        duration: clampDuration(params.durationMs),
         mode: "std",
       };
     },
@@ -113,6 +113,13 @@ const VIDEO_MODELS: Record<string, VideoModelConfig> = {
 
 // Default Kling model for img2video
 const DEFAULT_KLING_MODEL = "kling-v2-1";
+
+/** Kling only accepts "5" or "10" as duration strings */
+function clampDuration(durationMs?: number): string {
+  if (!durationMs) return "5";
+  const sec = Math.round(durationMs / 1000);
+  return sec > 7 ? "10" : "5";
+}
 
 // Map user-facing model IDs to internal routing
 function resolveModelConfig(modelId: string): { config: VideoModelConfig; klingModel: string } {
