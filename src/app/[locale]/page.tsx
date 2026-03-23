@@ -22,11 +22,19 @@ export default function HomePage() {
 
   useEffect(() => {
     fetch("/api/projects")
-      .then((r) => r.json())
-      .then(setProjects)
+      .then((r) => {
+        if (r.status === 401) {
+          router.push("/auth/signin");
+          return [];
+        }
+        return r.json();
+      })
+      .then((data) => {
+        if (Array.isArray(data)) setProjects(data);
+      })
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, []);
+  }, [router]);
 
   const createProject = async () => {
     const res = await fetch("/api/projects", {
