@@ -307,17 +307,30 @@ export default function ProjectPage({ params }: { params: Promise<{ projectId: s
                     </div>
                   ))}
                 </div>
-                <div className="flex gap-2">
+                {/* Stats */}
+                <div className="flex gap-4 mb-3 text-xs text-[var(--muted)]">
+                  <span>共 {allPanels.length} 个面板</span>
+                  <span>图片: {allPanels.filter(p => p.imageUrl).length}/{allPanels.length}</span>
+                  <span>视频: {allPanels.filter(p => p.videoUrl).length}/{allPanels.length}</span>
+                </div>
+                <div className="flex gap-2 items-center">
                   <button
                     onClick={() => triggerTask("generate", { type: "image" })}
-                    disabled={taskRunning}
+                    disabled={taskRunning || allPanels.every(p => p.imageUrl)}
                     className="px-4 py-2 rounded-lg bg-[var(--primary)] text-white text-sm hover:opacity-90 disabled:opacity-50"
                   >
                     {t("project.generateImages")}
                   </button>
                   <button
-                    onClick={() => triggerTask("generate", { type: "video" })}
-                    disabled={taskRunning}
+                    onClick={() => {
+                      const withImage = allPanels.filter(p => p.imageUrl).length;
+                      if (withImage === 0) {
+                        toast.error("请先生成图片，再生成视频");
+                        return;
+                      }
+                      triggerTask("generate", { type: "video" });
+                    }}
+                    disabled={taskRunning || allPanels.filter(p => p.imageUrl && !p.videoUrl).length === 0}
                     className="px-4 py-2 rounded-lg bg-[var(--secondary)] text-white text-sm hover:opacity-90 disabled:opacity-50"
                   >
                     {t("project.generateVideos")}
