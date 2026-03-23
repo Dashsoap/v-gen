@@ -58,6 +58,14 @@ export default function ProjectPage({ params }: { params: Promise<{ projectId: s
 
   useEffect(() => { fetchProject(); }, [projectId]);
 
+  // Auto-poll when project is in a working state
+  useEffect(() => {
+    const workingStates = ["analyzing", "rewriting", "storyboarding", "generating"];
+    if (!project || !workingStates.includes(project.status)) return;
+    const interval = setInterval(fetchProject, 3000);
+    return () => clearInterval(interval);
+  }, [project?.status]);
+
   const uploadVideo = async (file: File) => {
     const formData = new FormData();
     formData.append("file", file);
@@ -120,7 +128,20 @@ export default function ProjectPage({ params }: { params: Promise<{ projectId: s
           <ArrowLeft size={20} />
         </button>
         <h1 className="font-semibold">{project.title}</h1>
-        <span className="text-sm text-[var(--muted)] ml-auto">{project.status}</span>
+        {project.status && project.status !== "draft" && (
+          <span className={`ml-auto px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1.5 ${
+            ["analyzing", "rewriting", "storyboarding", "generating"].includes(project.status)
+              ? "bg-[var(--primary)]/20 text-[var(--primary)]"
+              : project.status === "completed"
+                ? "bg-[var(--success)]/20 text-[var(--success)]"
+                : "bg-[var(--muted)]/20 text-[var(--muted)]"
+          }`}>
+            {["analyzing", "rewriting", "storyboarding", "generating"].includes(project.status) && (
+              <Loader2 size={12} className="animate-spin" />
+            )}
+            {project.status}
+          </span>
+        )}
       </header>
 
       <main className="max-w-4xl mx-auto px-6 py-8 space-y-8">
@@ -131,18 +152,28 @@ export default function ProjectPage({ params }: { params: Promise<{ projectId: s
             {t("project.step1")}
           </h2>
           {project.sourceVideoUrl ? (
-            <div className="space-y-2">
+            <div className="space-y-3">
               <video src={project.sourceVideoUrl} controls className="w-full rounded-lg max-h-64 bg-black" />
-              <div className="flex gap-2">
-                <button
-                  onClick={() => triggerTask("analyze")}
-                  disabled={taskRunning}
-                  className="px-4 py-2 rounded-lg bg-[var(--primary)] text-white text-sm hover:opacity-90 disabled:opacity-50 flex items-center gap-2"
-                >
-                  {taskRunning ? <Loader2 size={14} className="animate-spin" /> : <Wand2 size={14} />}
-                  {t("project.analyze")}
-                </button>
-              </div>
+              {project.status === "analyzing" ? (
+                <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-[var(--primary)]/10 border border-[var(--primary)]/30">
+                  <Loader2 size={20} className="animate-spin text-[var(--primary)]" />
+                  <div>
+                    <p className="text-sm font-medium">正在分析视频...</p>
+                    <p className="text-xs text-[var(--muted)]">AI 正在提取关键帧并生成文字描述，请稍候</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => triggerTask("analyze")}
+                    disabled={taskRunning}
+                    className="px-4 py-2 rounded-lg bg-[var(--primary)] text-white text-sm hover:opacity-90 disabled:opacity-50 flex items-center gap-2"
+                  >
+                    {taskRunning ? <Loader2 size={14} className="animate-spin" /> : <Wand2 size={14} />}
+                    {t("project.analyze")}
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
             <label
