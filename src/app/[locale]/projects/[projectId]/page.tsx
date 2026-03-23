@@ -3,7 +3,7 @@
 import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { ArrowLeft, Upload, Wand2, LayoutGrid, Film, Download, Loader2 } from "lucide-react";
+import { ArrowLeft, Upload, Wand2, LayoutGrid, Film, Download, Loader2, Image as ImageIcon, Play } from "lucide-react";
 import toast from "react-hot-toast";
 
 interface Project {
@@ -46,6 +46,7 @@ export default function ProjectPage({ params }: { params: Promise<{ projectId: s
   const [text, setText] = useState("");
   const [taskRunning, setTaskRunning] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
+  const [panelLoading, setPanelLoading] = useState<Record<string, string>>({});
 
   const fetchProject = async () => {
     const res = await fetch(`/api/projects/${projectId}`);
@@ -142,6 +143,50 @@ export default function ProjectPage({ params }: { params: Promise<{ projectId: s
       }
     } finally {
       setTaskRunning(false);
+    }
+  };
+
+  const generateForPanel = async (panelId: string, type: "image" | "video") => {
+    setPanelLoading((prev) => ({ ...prev, [panelId]: type }));
+    try {
+      const res = await fetch(`/api/projects/${projectId}/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type, panelId }),
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        toast.error(errData.error || `生成失败`);
+        return;
+      }
+      const { taskId } = await res.json();
+      toast.success(type === "image" ? "开始生成图片..." : "开始生成视频...");
+      // Poll this single task
+      const poll = setInterval(async () => {
+        try {
+          const taskRes = await fetch(`/api/tasks/${taskId}`);
+          if (!taskRes.ok) return;
+          const task = await taskRes.json();
+          if (task.status === "completed") {
+            clearInterval(poll);
+            setPanelLoading((prev) => { const n = { ...prev }; delete n[panelId]; return n; });
+            await fetchProject();
+            toast.success("生成完成!");
+          } else if (task.status === "failed") {
+            clearInterval(poll);
+            setPanelLoading((prev) => { const n = { ...prev }; delete n[panelId]; return n; });
+            toast.error(`生成失败: ${task.error || task.errorCode || "未知错误"}`);
+          }
+        } catch { /* ignore */ }
+      }, 5000);
+      setTimeout(() => {
+        clearInterval(poll);
+        setPanelLoading((prev) => { const n = { ...prev }; delete n[panelId]; return n; });
+      }, 1800000);
+    } catch {
+      toast.error("请求失败");
+    } finally {
+      // Don't clear panelLoading here - the polling will do it
     }
   };
 
@@ -301,24 +346,62 @@ export default function ProjectPage({ params }: { params: Promise<{ projectId: s
               </div>
             ) : (
               <>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 mb-4">
-                  {allPanels.map((panel) => (
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
+                  {allPanels.map((panel, idx) => (
                     <div key={panel.id} className="rounded-lg border border-[var(--border)] overflow-hidden bg-[var(--background)]">
-                      {panel.imageUrl ? (
+                      {/* Media preview */}
+                      {panel.videoUrl ? (
+                        <video
+                          src={panel.videoUrl}
+                          controls
+                          preload="metadata"
+                          className="w-full aspect-video object-cover bg-black"
+                        />
+                      ) : panel.imageUrl ? (
                         <img src={panel.imageUrl} alt="" className="w-full aspect-video object-cover" />
                       ) : (
                         <div className="w-full aspect-video bg-[var(--card-hover)] flex items-center justify-center text-[var(--muted)] text-xs">
                           No image
                         </div>
                       )}
-                      <div className="p-2 text-xs text-[var(--muted)] truncate">
-                        {panel.sceneDescription || panel.imagePrompt || `Panel ${panel.sortOrder + 1}`}
-                      </div>
-                      {panel.videoUrl && (
-                        <div className="px-2 pb-2">
-                          <span className="text-xs text-[var(--success)]">Video ready</span>
+                      {/* Info + actions */}
+                      <div className="p-2 space-y-1.5">
+                        <div className="text-xs text-[var(--muted)] truncate">
+                          {`#${idx + 1} `}{panel.sceneDescription || panel.imagePrompt || ""}
                         </div>
-                      )}
+                        <div className="flex gap-1.5">
+                          {/* Generate image button */}
+                          <button
+                            onClick={() => generateForPanel(panel.id, "image")}
+                            disabled={!!panelLoading[panel.id]}
+                            className="flex-1 px-2 py-1 rounded text-xs border border-[var(--border)] hover:bg-[var(--card-hover)] disabled:opacity-50 flex items-center justify-center gap-1"
+                            title="生成图片"
+                          >
+                            {panelLoading[panel.id] === "image" ? (
+                              <Loader2 size={10} className="animate-spin" />
+                            ) : (
+                              <ImageIcon size={10} />
+                            )}
+                            {panel.imageUrl ? "重新生成" : "生成图片"}
+                          </button>
+                          {/* Generate video button */}
+                          {panel.imageUrl && (
+                            <button
+                              onClick={() => generateForPanel(panel.id, "video")}
+                              disabled={!!panelLoading[panel.id]}
+                              className="flex-1 px-2 py-1 rounded text-xs border border-[var(--border)] hover:bg-[var(--card-hover)] disabled:opacity-50 flex items-center justify-center gap-1"
+                              title="生成视频"
+                            >
+                              {panelLoading[panel.id] === "video" ? (
+                                <Loader2 size={10} className="animate-spin" />
+                              ) : (
+                                <Play size={10} />
+                              )}
+                              {panel.videoUrl ? "重新生成" : "生成视频"}
+                            </button>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>
