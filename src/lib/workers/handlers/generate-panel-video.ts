@@ -5,6 +5,9 @@ import { prisma } from "@/lib/prisma";
 import { createVideoGenerator } from "@/lib/generators/factory";
 import { resolveVideoConfig, resolveProviderConfig, mapToVideoProvider } from "@/lib/providers/resolve";
 import { buildVideoPromptWithReferences } from "@/lib/video/build-prompt";
+import { createLLMClient, chatCompletion } from "@/lib/llm/client";
+import { resolveLlmConfig } from "@/lib/providers/resolve";
+import { TRANSITION_PROMPT_SYSTEM, TRANSITION_PROMPT_USER } from "@/lib/llm/prompts/transition-prompt";
 import { withTaskLifecycle } from "../shared";
 import type { TaskPayload } from "@/lib/task/types";
 import { createScopedLogger } from "@/lib/logging";
@@ -48,33 +51,83 @@ export const handleGeneratePanelVideo = withTaskLifecycle(async (payload: TaskPa
 
   await ctx.reportProgress(30);
 
-  // Build enhanced prompt
-  const basePrompt = panel.videoPrompt || panel.sceneDescription || "";
-  const enhancedPrompt = buildVideoPromptWithReferences(
-    panel.imageUrl,
-    basePrompt,
-    panel,
-  );
-
-  logger.info("Built video prompt", { panelId, promptLength: enhancedPrompt.length });
-
-  // Check for first-last-frame mode
+  // Find next panel for first-last-frame mode (always enabled)
   let lastFrameImageUrl: string | undefined;
-  if (panel.videoGenerationMode === "firstlastframe") {
-    const nextPanel = await prisma.panel.findFirst({
-      where: {
-        clipId: panel.clipId,
-        sortOrder: { gt: panel.sortOrder },
-      },
-      orderBy: { sortOrder: "asc" },
-      select: { imageUrl: true },
-    });
+  let nextPanelDescription: string | undefined;
 
-    if (nextPanel?.imageUrl) {
-      lastFrameImageUrl = nextPanel.imageUrl;
-      logger.info("Using first-last-frame mode", { panelId });
+  // 1. Try same clip, next sortOrder
+  let nextPanel = await prisma.panel.findFirst({
+    where: {
+      clipId: panel.clipId,
+      sortOrder: { gt: panel.sortOrder },
+    },
+    orderBy: { sortOrder: "asc" },
+    select: { imageUrl: true, sceneDescription: true },
+  });
+
+  // 2. If no next panel in same clip, try next clip in same episode
+  if (!nextPanel?.imageUrl) {
+    const clip = await prisma.clip.findUnique({
+      where: { id: panel.clipId },
+      select: { episodeId: true, sortOrder: true },
+    });
+    if (clip) {
+      const nextClip = await prisma.clip.findFirst({
+        where: {
+          episodeId: clip.episodeId,
+          sortOrder: { gt: clip.sortOrder },
+        },
+        orderBy: { sortOrder: "asc" },
+        select: { id: true },
+      });
+      if (nextClip) {
+        nextPanel = await prisma.panel.findFirst({
+          where: { clipId: nextClip.id },
+          orderBy: { sortOrder: "asc" },
+          select: { imageUrl: true, sceneDescription: true },
+        });
+      }
     }
   }
+
+  if (nextPanel?.imageUrl) {
+    lastFrameImageUrl = nextPanel.imageUrl;
+    nextPanelDescription = nextPanel.sceneDescription || undefined;
+    logger.info("Using first-last-frame mode", { panelId });
+  }
+
+  // Build video prompt
+  let enhancedPrompt: string;
+
+  if (lastFrameImageUrl && nextPanelDescription) {
+    // Use LLM to generate transition prompt between frames
+    try {
+      const llmConfig = await resolveLlmConfig(userId);
+      const llmClient = createLLMClient(llmConfig);
+      const startDesc = panel.sceneDescription || panel.videoPrompt || "";
+      enhancedPrompt = await chatCompletion(llmClient, {
+        model: llmConfig.model,
+        systemPrompt: TRANSITION_PROMPT_SYSTEM,
+        userPrompt: TRANSITION_PROMPT_USER(startDesc, nextPanelDescription),
+        temperature: 0.8,
+      });
+      // Trim to 490 chars (API limit)
+      if (enhancedPrompt.length > 490) {
+        enhancedPrompt = enhancedPrompt.substring(0, 490);
+      }
+      logger.info("Generated transition prompt via LLM", { panelId, promptLength: enhancedPrompt.length });
+    } catch (err) {
+      logger.warn("LLM transition prompt failed, falling back", { panelId, error: String(err) });
+      const basePrompt = panel.videoPrompt || panel.sceneDescription || "";
+      enhancedPrompt = buildVideoPromptWithReferences(panel.imageUrl, basePrompt, panel);
+    }
+  } else {
+    // No next frame — use standard prompt
+    const basePrompt = panel.videoPrompt || panel.sceneDescription || "";
+    enhancedPrompt = buildVideoPromptWithReferences(panel.imageUrl, basePrompt, panel);
+  }
+
+  logger.info("Built video prompt", { panelId, promptLength: enhancedPrompt.length, hasEndFrame: !!lastFrameImageUrl });
 
   await ctx.reportProgress(50);
 

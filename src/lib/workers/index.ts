@@ -10,6 +10,7 @@ import { handleRewrite } from "./handlers/rewrite";
 import { handleGenerateStoryboard } from "./handlers/generate-storyboard";
 import { handleGeneratePanelImage } from "./handlers/generate-panel-image";
 import { handleGeneratePanelVideo } from "./handlers/generate-panel-video";
+import { handleGenerateVoiceLine } from "./handlers/generate-voice-line";
 import { handleComposeVideo } from "./handlers/compose-video";
 
 const logger = createScopedLogger({ module: "worker" });
@@ -20,6 +21,7 @@ const handlers: Record<string, (payload: TaskPayload) => Promise<void>> = {
   [TaskType.GENERATE_STORYBOARD]: handleGenerateStoryboard,
   [TaskType.GENERATE_PANEL_IMAGE]: handleGeneratePanelImage,
   [TaskType.GENERATE_PANEL_VIDEO]: handleGeneratePanelVideo,
+  [TaskType.GENERATE_VOICE_LINE]: handleGenerateVoiceLine,
   [TaskType.COMPOSE_VIDEO]: handleComposeVideo,
 };
 

@@ -411,7 +411,7 @@ export default function ProjectPage({ params }: { params: Promise<{ projectId: s
                   <span>图片: {allPanels.filter(p => p.imageUrl).length}/{allPanels.length}</span>
                   <span>视频: {allPanels.filter(p => p.videoUrl).length}/{allPanels.length}</span>
                 </div>
-                <div className="flex gap-2 items-center">
+                <div className="flex gap-2 items-center flex-wrap">
                   <button
                     onClick={() => triggerTask("generate", { type: "image" })}
                     disabled={taskRunning || allPanels.every(p => p.imageUrl)}
@@ -432,6 +432,13 @@ export default function ProjectPage({ params }: { params: Promise<{ projectId: s
                     className="px-4 py-2 rounded-lg bg-[var(--secondary)] text-white text-sm hover:opacity-90 disabled:opacity-50"
                   >
                     {t("project.generateVideos")}
+                  </button>
+                  <button
+                    onClick={() => triggerTask("generate", { type: "voice" })}
+                    disabled={taskRunning}
+                    className="px-4 py-2 rounded-lg border border-[var(--border)] text-sm hover:bg-[var(--card-hover)] disabled:opacity-50"
+                  >
+                    生成语音
                   </button>
                 </div>
               </>

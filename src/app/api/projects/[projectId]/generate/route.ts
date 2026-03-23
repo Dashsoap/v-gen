@@ -50,6 +50,24 @@ export const POST = apiHandler(async (req: NextRequest, ctx) => {
       });
       taskIds.push(taskId);
     }
+  } else if (type === "voice") {
+    // Generate voice lines for all panels that have voice lines
+    const panelsWithVoice = await prisma.panel.findMany({
+      where: {
+        clip: { episode: { projectId } },
+        voiceLines: { some: { audioUrl: null } },
+      },
+      select: { id: true },
+    });
+    for (const panel of panelsWithVoice) {
+      const taskId = await createTask({
+        userId: auth.session.user.id,
+        projectId,
+        type: TaskType.GENERATE_VOICE_LINE,
+        data: { projectId, panelId: panel.id },
+      });
+      taskIds.push(taskId);
+    }
   } else {
     // Generate images for panels that don't have images
     const targetPanels = panels.filter((p) => !p.imageUrl);

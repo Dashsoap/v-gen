@@ -44,6 +44,7 @@ export function getVoiceQueue(): Queue {
 export function getQueueByType(type: string): Queue {
   if (type.includes("IMAGE")) return getImageQueue();
   if (type.includes("VIDEO") || type === "COMPOSE_VIDEO") return getVideoQueue();
+  if (type.includes("VOICE")) return getVoiceQueue();
   return getTextQueue();
 }
 

@@ -56,8 +56,8 @@ const VIDEO_MODELS: Record<string, VideoModelConfig> = {
         base.sound = "off";
       } else {
         base.startFrame = params.imageUrl;
-        // endFrame only supported by kling-v1-6 in pro mode
-        if (params.lastFrameImageUrl && model === "kling-v1-6") {
+        // endFrame for first-last-frame mode
+        if (params.lastFrameImageUrl) {
           base.endFrame = params.lastFrameImageUrl;
           base.mode = "pro";
         }
