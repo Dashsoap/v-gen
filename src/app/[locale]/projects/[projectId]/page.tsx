@@ -45,6 +45,7 @@ export default function ProjectPage({ params }: { params: Promise<{ projectId: s
   const [loading, setLoading] = useState(true);
   const [text, setText] = useState("");
   const [taskRunning, setTaskRunning] = useState(false);
+  const [lastError, setLastError] = useState<string | null>(null);
 
   const fetchProject = async () => {
     const res = await fetch(`/api/projects/${projectId}`);
@@ -85,6 +86,7 @@ export default function ProjectPage({ params }: { params: Promise<{ projectId: s
 
   const triggerTask = async (endpoint: string, body?: object) => {
     setTaskRunning(true);
+    setLastError(null);
     try {
       const res = await fetch(`/api/projects/${projectId}/${endpoint}`, {
         method: "POST",
@@ -92,14 +94,36 @@ export default function ProjectPage({ params }: { params: Promise<{ projectId: s
         body: JSON.stringify(body || {}),
       });
       if (res.ok) {
+        const data = await res.json();
+        const taskId = data.taskId;
         toast.success("Task started");
-        // Poll for completion
-        const checkInterval = setInterval(async () => {
-          await fetchProject();
-        }, 3000);
-        setTimeout(() => clearInterval(checkInterval), 120000);
+        await fetchProject();
+
+        // Poll task status for completion/failure
+        if (taskId) {
+          const checkInterval = setInterval(async () => {
+            try {
+              const taskRes = await fetch(`/api/tasks/${taskId}`);
+              if (!taskRes.ok) return;
+              const task = await taskRes.json();
+              if (task.status === "completed") {
+                clearInterval(checkInterval);
+                await fetchProject();
+                toast.success("完成!");
+              } else if (task.status === "failed") {
+                clearInterval(checkInterval);
+                await fetchProject();
+                const errMsg = task.error || task.errorCode || "未知错误";
+                setLastError(errMsg);
+                toast.error(`任务失败: ${errMsg}`);
+              }
+            } catch { /* ignore poll errors */ }
+          }, 3000);
+          setTimeout(() => clearInterval(checkInterval), 300000);
+        }
       } else {
-        toast.error("Failed to start task");
+        const errData = await res.json().catch(() => ({}));
+        toast.error(errData.error || "Failed to start task");
       }
     } finally {
       setTaskRunning(false);
@@ -154,6 +178,16 @@ export default function ProjectPage({ params }: { params: Promise<{ projectId: s
           {project.sourceVideoUrl ? (
             <div className="space-y-3">
               <video src={project.sourceVideoUrl} controls className="w-full rounded-lg max-h-64 bg-black" />
+              {lastError && (
+                <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-red-500/10 border border-red-500/30 mb-3">
+                  <span className="text-red-400 text-lg">✕</span>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-red-400">任务失败</p>
+                    <p className="text-xs text-[var(--muted)]">{lastError}</p>
+                  </div>
+                  <button onClick={() => setLastError(null)} className="text-[var(--muted)] hover:text-[var(--foreground)] text-sm">关闭</button>
+                </div>
+              )}
               {project.status === "analyzing" ? (
                 <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-[var(--primary)]/10 border border-[var(--primary)]/30">
                   <Loader2 size={20} className="animate-spin text-[var(--primary)]" />
