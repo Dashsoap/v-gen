@@ -98,13 +98,13 @@ export const handleGeneratePanelVideo = withTaskLifecycle(async (payload: TaskPa
 
   // Build video prompt
   let enhancedPrompt: string;
+  const startDesc = panel.sceneDescription || panel.videoPrompt || panel.imagePrompt || "";
 
-  if (lastFrameImageUrl && nextPanelDescription) {
+  if (lastFrameImageUrl && nextPanelDescription && startDesc) {
     // Use LLM to generate transition prompt between frames
     try {
       const llmConfig = await resolveLlmConfig(userId);
       const llmClient = createLLMClient(llmConfig);
-      const startDesc = panel.sceneDescription || panel.videoPrompt || "";
       enhancedPrompt = await chatCompletion(llmClient, {
         model: llmConfig.model,
         systemPrompt: TRANSITION_PROMPT_SYSTEM,
@@ -118,13 +118,16 @@ export const handleGeneratePanelVideo = withTaskLifecycle(async (payload: TaskPa
       logger.info("Generated transition prompt via LLM", { panelId, promptLength: enhancedPrompt.length });
     } catch (err) {
       logger.warn("LLM transition prompt failed, falling back", { panelId, error: String(err) });
-      const basePrompt = panel.videoPrompt || panel.sceneDescription || "";
-      enhancedPrompt = buildVideoPromptWithReferences(panel.imageUrl, basePrompt, panel);
+      enhancedPrompt = buildVideoPromptWithReferences(panel.imageUrl, startDesc, panel);
     }
   } else {
-    // No next frame — use standard prompt
-    const basePrompt = panel.videoPrompt || panel.sceneDescription || "";
-    enhancedPrompt = buildVideoPromptWithReferences(panel.imageUrl, basePrompt, panel);
+    // No next frame or missing descriptions — use standard prompt
+    enhancedPrompt = buildVideoPromptWithReferences(panel.imageUrl, startDesc, panel);
+  }
+
+  // Ensure prompt is never empty — Kling API rejects empty prompts
+  if (!enhancedPrompt || enhancedPrompt.trim().length === 0) {
+    enhancedPrompt = startDesc || "A cinematic scene with smooth camera movement.";
   }
 
   logger.info("Built video prompt", { panelId, promptLength: enhancedPrompt.length, hasEndFrame: !!lastFrameImageUrl });

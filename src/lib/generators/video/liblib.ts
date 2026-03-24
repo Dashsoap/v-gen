@@ -225,9 +225,13 @@ export class LiblibVideoGenerator implements VideoGenerator {
 
       const data = await response.json();
       if (data.code !== 0) {
-        const err = new Error(`LiblibAI video submit error: ${data.msg || JSON.stringify(data)}`);
-        // Mark as retryable — LiblibAI API body errors are almost always transient
-        (err as unknown as Record<string, unknown>).status = 429;
+        const msg = data.msg || JSON.stringify(data);
+        const err = new Error(`LiblibAI video submit error: ${msg}`);
+        // Parameter validation errors are NOT retryable; everything else is
+        const isParamError = msg.includes("参数") && (msg.includes("校验") || msg.includes("empty") || msg.includes("invalid"));
+        if (!isParamError) {
+          (err as unknown as Record<string, unknown>).status = 429;
+        }
         throw err;
       }
 
