@@ -289,8 +289,7 @@ export const handleGenerateStoryboard = withTaskLifecycle(async (payload: TaskPa
       await ctx.reportProgress(completedSteps, totalSteps);
 
       // ── Phase 4: Voice Line Extraction ───────────────────
-      const hasDialogue = clip.dialogue || (screenplay && screenplay.includes('"dialogue"'));
-      if (hasDialogue && savedPanels.length > 0) {
+      if (savedPanels.length > 0) {
         logger.info("Phase 4: Extracting voice lines", { clipId: clip.id });
 
         const voiceResult = await chatCompletion(client, {
