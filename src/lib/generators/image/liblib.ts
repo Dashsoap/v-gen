@@ -211,7 +211,11 @@ export class LiblibImageGenerator implements ImageGenerator {
 
       const data = await response.json();
       if (data.code !== 0) {
-        throw new Error(`LiblibAI submit error: ${data.msg || JSON.stringify(data)}`);
+        const err = new Error(`LiblibAI submit error: ${data.msg || JSON.stringify(data)}`);
+        // Mark as retryable (429) — LiblibAI API body errors are almost always transient
+        // (rate limit, concurrency limit, internal error)
+        (err as unknown as Record<string, unknown>).status = 429;
+        throw err;
       }
 
       const uuid = data.data?.generateUuid;
@@ -219,7 +223,7 @@ export class LiblibImageGenerator implements ImageGenerator {
         throw new Error(`LiblibAI submit returned no generateUuid: ${JSON.stringify(data)}`);
       }
       return uuid;
-    }, { label: `liblib-submit:${params.model || this.defaultModel}` });
+    }, { label: `liblib-submit:${params.model || this.defaultModel}`, maxRetries: 5, baseDelay: 10000 });
   }
 
   private async pollResult(

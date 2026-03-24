@@ -225,14 +225,10 @@ export class LiblibVideoGenerator implements VideoGenerator {
 
       const data = await response.json();
       if (data.code !== 0) {
-        const msg = data.msg || JSON.stringify(data);
-        // Rate limit errors should be retryable
-        if (msg.includes("请求过多") || msg.includes("rate") || msg.includes("too many")) {
-          const err = new Error(`LiblibAI video rate limited: ${msg}`);
-          (err as unknown as Record<string, unknown>).status = 429;
-          throw err;
-        }
-        throw new Error(`LiblibAI video submit error: ${msg}`);
+        const err = new Error(`LiblibAI video submit error: ${data.msg || JSON.stringify(data)}`);
+        // Mark as retryable — LiblibAI API body errors are almost always transient
+        (err as unknown as Record<string, unknown>).status = 429;
+        throw err;
       }
 
       const uuid = data.data?.generateUuid;

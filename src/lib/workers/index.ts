@@ -50,7 +50,7 @@ async function bootRecovery() {
 function startWorkers() {
   const concurrency = {
     [QUEUE_NAMES.text]: parseInt(process.env.WORKER_TEXT_CONCURRENCY ?? "10"),
-    [QUEUE_NAMES.image]: parseInt(process.env.WORKER_IMAGE_CONCURRENCY ?? "2"),
+    [QUEUE_NAMES.image]: parseInt(process.env.WORKER_IMAGE_CONCURRENCY ?? "1"),
     [QUEUE_NAMES.video]: parseInt(process.env.WORKER_VIDEO_CONCURRENCY ?? "3"),
     [QUEUE_NAMES.voice]: parseInt(process.env.WORKER_VOICE_CONCURRENCY ?? "5"),
   };
