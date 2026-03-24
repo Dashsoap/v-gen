@@ -48,10 +48,13 @@ export async function composeVideo(options: ComposeOptions): Promise<{
       .join("\n");
     await writeFile(concatFile, concatContent);
 
-    // 3. Generate SRT
+    // 3. Generate SRT (only if there are subtitles)
     const srtContent = generateSrt(timeline.subtitles);
-    const srtFile = join(workDir, "subtitles.srt");
-    await writeFile(srtFile, srtContent);
+    let srtFile: string | undefined;
+    if (srtContent.trim().length > 0) {
+      srtFile = join(workDir, "subtitles.srt");
+      await writeFile(srtFile, srtContent);
+    }
 
     // 4. Download audio files
     const audioFiles: Array<{ path: string; startMs: number }> = [];
@@ -80,7 +83,7 @@ export async function composeVideo(options: ComposeOptions): Promise<{
     const args = buildFFmpegArgs({
       concatFile,
       audioFiles,
-      srtFile: subtitleEnabled ? srtFile : undefined,
+      srtFile: subtitleEnabled && srtFile ? srtFile : undefined,
       bgmFile,
       bgmVolume,
       outputPath,
@@ -169,7 +172,9 @@ function buildFFmpegArgs(params: {
 
   // Subtitle burn-in
   if (params.srtFile) {
-    args.push("-vf", `subtitles=${params.srtFile}:force_style='FontSize=24,PrimaryColour=&Hffffff&'`);
+    // Escape special chars in path for FFmpeg subtitles filter
+    const escapedSrtPath = params.srtFile.replace(/([:\\'])/g, "\\$1");
+    args.push("-vf", `subtitles=${escapedSrtPath}:force_style='FontSize=24,PrimaryColour=&Hffffff&'`);
   }
 
   // Output settings
