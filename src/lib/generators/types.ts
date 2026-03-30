@@ -54,5 +54,5 @@ export interface ProviderConfig {
 }
 
 export type ImageProviderType = "openai" | "fal" | "google-gemini" | "liblib";
-export type VideoProviderType = "openai" | "fal" | "google" | "liblib";
+export type VideoProviderType = "openai" | "fal" | "google" | "liblib" | "seedance";
 export type AudioProviderType = "openai" | "fish-audio" | "elevenlabs";
