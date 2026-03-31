@@ -34,10 +34,20 @@ export async function resolveImageConfig(userId: string) {
  */
 export async function resolveVideoConfig(userId: string) {
   const selection = await resolveDefaultModel(userId, "video");
+  const providerType = mapToVideoProvider(selection.provider);
+
+  // Seedance uses hardcoded credentials — no user provider config needed
+  if (providerType === "seedance") {
+    return {
+      provider: providerType,
+      config: { apiKey: "", model: selection.modelId } as ProviderConfig,
+    };
+  }
+
   const providerConfig = await getProviderConfig(userId, selection.provider);
 
   return {
-    provider: mapToVideoProvider(selection.provider),
+    provider: providerType,
     config: {
       apiKey: providerConfig.apiKey,
       baseUrl: providerConfig.baseUrl,
@@ -89,6 +99,15 @@ export async function resolveProviderConfig(
 ) {
   if (modelKey) {
     // Direct model key resolution
+    const { parseModelKey } = await import("@/lib/api-config");
+    const parsed = parseModelKey(modelKey);
+    // Seedance: hardcoded credentials, skip provider config lookup
+    if (parsed && getProviderKey(parsed.provider) === "seedance") {
+      return {
+        provider: parsed.provider,
+        config: { apiKey: "", model: parsed.modelId } as ProviderConfig,
+      };
+    }
     const { resolveModelSelection } = await import("@/lib/api-config");
     const selection = await resolveModelSelection(userId, modelKey, mediaType);
     const providerConfig = await getProviderConfig(userId, selection.provider);
@@ -104,6 +123,13 @@ export async function resolveProviderConfig(
 
   // Default model resolution
   const selection = await resolveDefaultModel(userId, mediaType);
+  // Seedance: hardcoded credentials, skip provider config lookup
+  if (getProviderKey(selection.provider) === "seedance") {
+    return {
+      provider: selection.provider,
+      config: { apiKey: "", model: selection.modelId } as ProviderConfig,
+    };
+  }
   const providerConfig = await getProviderConfig(userId, selection.provider);
   return {
     provider: selection.provider,
