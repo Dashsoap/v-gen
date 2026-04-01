@@ -20,8 +20,8 @@ const logger = createScopedLogger({ module: "seedance-video" });
 const API_BASE = "https://api.liblib.tv/api/task/generation";
 
 // ─── Default credentials (reverse-engineered) ────────────────────────────
-const DEFAULT_TOKEN = "f4cdb087b0f649b090ec906818a31e2b3852041c3c0a";
-const DEFAULT_WEBID = "1742284320339icxfswzy";
+const DEFAULT_TOKEN = "2cdd1d1397b44d22bd228f46ad0b4a6e3852041c3c0a";
+const DEFAULT_WEBID = "1775045325167podmcilg";
 
 // ─── Status codes from liblib.tv API ─────────────────────────────────────
 // progressPercent 100 + taskResult = done
